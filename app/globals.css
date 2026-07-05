@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Warm off-white / ink-navy palette. Deliberately not the default
+       shadcn neutral gray-scale — see home page for the intent. */
+    --background: 40 38% 97%;
+    --foreground: 222 47% 14%;
+
+    --card: 40 30% 99%;
+    --card-foreground: 222 47% 14%;
+
+    --primary: 222 47% 16%;
+    --primary-foreground: 40 38% 97%;
+
+    --secondary: 40 20% 92%;
+    --secondary-foreground: 222 47% 16%;
+
+    --muted: 40 20% 92%;
+    --muted-foreground: 30 8% 40%;
+
+    --accent: 40 30% 90%;
+    --accent-foreground: 222 47% 16%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 40 38% 97%;
+
+    --border: 40 20% 87%;
+    --input: 40 20% 87%;
+    --ring: 222 47% 30%;
+
+    --radius: 0.75rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
