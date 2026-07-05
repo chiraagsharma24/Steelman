@@ -1,0 +1,85 @@
+// Prisma schema for Steelman.
+// Postgres (Neon) holds app data — documents, debates, verdicts, and chunk
+// embeddings. The Mesh SDK (v0.1.0) has no `rag` namespace, so retrieval is
+// built ourselves: embeddings.create() + pgvector, not Mesh-hosted RAG.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
+}
+
+enum SourceType {
+  TEXT
+  FILE
+  URL
+}
+
+enum DebateStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+enum Confidence {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+model Document {
+  id         String     @id @default(cuid())
+  title      String
+  sourceType SourceType
+  rawText    String?
+  meshFileId String?
+  createdAt  DateTime   @default(now())
+
+  debates Debate[]
+  chunks  Chunk[]
+}
+
+model Chunk {
+  id         String                       @id @default(cuid())
+  documentId String
+  content    String
+  chunkIndex Int
+  embedding  Unsupported("vector(1536)")?
+  createdAt  DateTime                     @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+}
+
+model Debate {
+  id         String       @id @default(cuid())
+  question   String
+  status     DebateStatus @default(PENDING)
+  createdAt  DateTime     @default(now())
+  documentId String?
+
+  document Document? @relation(fields: [documentId], references: [id])
+  verdicts Verdict[]
+}
+
+model Verdict {
+  id              String     @id @default(cuid())
+  debateId        String
+  claim           String
+  forArgument     String
+  againstArgument String
+  forWeakness     String
+  againstWeakness String
+  confidence      Confidence
+  evidenceJson    Json
+  createdAt       DateTime   @default(now())
+
+  debate Debate @relation(fields: [debateId], references: [id], onDelete: Cascade)
+}
