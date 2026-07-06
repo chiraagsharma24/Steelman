@@ -9,20 +9,24 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@mozilla/readability": "^0.6.0",
     "@prisma/client": "^5.22.0",
     "@radix-ui/react-slot": "^1.3.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.42.2",
+    "jsdom": "^29.1.1",
     "lucide-react": "^1.23.0",
     "meshapi-node-sdk": "^0.1.0",
     "next": "14.2.35",
+    "pdf-parse": "^2.4.5",
     "react": "^18",
     "react-dom": "^18",
     "tailwind-merge": "^3.6.0",
     "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
+    "@types/jsdom": "^28.0.3",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
