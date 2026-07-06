@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { AppError, EMBED_MODEL, EXTRACTOR_MODEL, chat, embed } from "@/lib/mesh";
+import { EMBED_MODEL, EXTRACTOR_MODEL, chat, embed } from "@/lib/mesh";
+import { handleApiError } from "@/lib/api";
 
 export async function GET() {
   try {
@@ -27,23 +28,6 @@ export async function GET() {
       embedding: { model: EMBED_MODEL, dimensions },
     });
   } catch (err) {
-    if (err instanceof AppError) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: {
-            code: err.code,
-            message: err.message,
-            requestId: err.requestId,
-            retryAfterSeconds: err.retryAfterSeconds,
-          },
-        },
-        { status: err.status || 500 }
-      );
-    }
-    return NextResponse.json(
-      { ok: false, error: { code: "unknown", message: "Unexpected server error." } },
-      { status: 500 }
-    );
+    return handleApiError(err);
   }
 }

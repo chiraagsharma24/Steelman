@@ -15,7 +15,12 @@ export function fromText(input: string, title?: string): IngestSource {
   return { title: title?.trim() || deriveTitle(text), text };
 }
 
+const TITLE_MAX_CHARS = 80;
+
 function deriveTitle(text: string): string {
-  const firstLine = text.split("\n").find((line) => line.trim().length > 0) ?? "Untitled";
-  return firstLine.trim().slice(0, 120);
+  const firstLine = (text.split("\n").find((line) => line.trim().length > 0) ?? "Untitled").trim();
+  if (firstLine.length <= TITLE_MAX_CHARS) return firstLine;
+  const truncated = firstLine.slice(0, TITLE_MAX_CHARS);
+  const lastSpace = truncated.lastIndexOf(" ");
+  return `${lastSpace > 40 ? truncated.slice(0, lastSpace) : truncated}…`;
 }
