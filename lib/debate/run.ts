@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { AppError } from "@/lib/mesh";
+import { mapWithConcurrency, withRateLimitBackoff } from "@/lib/concurrency";
 import { searchChunks, type RetrievedChunk } from "@/lib/retrieve";
 import { extractClaims } from "./extract";
 import { runSideDebate, type DebateResult } from "./debate";
@@ -9,7 +10,6 @@ import type { ExtractedClaim, RefereeVerdict, SideArgument } from "./schemas";
 
 const MAX_CONCURRENT_CLAIMS = 3;
 const EVIDENCE_TOP_K = 6;
-const DEFAULT_BACKOFF_MS = 3000;
 
 export interface RunDebateInput {
   documentId?: string;
@@ -33,38 +33,6 @@ export interface RunDebateResult {
   debateId: string;
   question: string;
   claims: ClaimResult[];
-}
-
-async function mapWithConcurrency<T, R>(
-  items: T[],
-  limit: number,
-  fn: (item: T, index: number) => Promise<R>
-): Promise<R[]> {
-  const results: R[] = new Array(items.length);
-  let nextIndex = 0;
-  async function worker() {
-    for (;;) {
-      const i = nextIndex++;
-      if (i >= items.length) return;
-      results[i] = await fn(items[i], i);
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
-  return results;
-}
-
-async function withRateLimitBackoff<T>(fn: () => Promise<T>): Promise<T> {
-  try {
-    return await fn();
-  } catch (err) {
-    if (err instanceof AppError && err.code === "rate_limit_exceeded") {
-      const waitMs = (err.retryAfterSeconds ?? DEFAULT_BACKOFF_MS / 1000) * 1000;
-      console.warn(`[debate] rate limited, backing off ${waitMs}ms then retrying once`);
-      await new Promise((resolve) => setTimeout(resolve, waitMs));
-      return await fn();
-    }
-    throw err;
-  }
 }
 
 async function processClaim(
@@ -117,7 +85,7 @@ async function processClaim(
         defender: debate.defender,
         evidence: chunks,
       };
-    });
+    }, "debate");
   } catch (err) {
     console.error(`[debate] claim "${label}" failed:`, err);
     return {

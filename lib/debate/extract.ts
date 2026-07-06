@@ -1,5 +1,5 @@
 import { EXTRACTOR_MODEL } from "@/lib/mesh";
-import { chatJson } from "./json";
+import { chatJson } from "@/lib/chatJson";
 import { ExtractionSchema, type ExtractedClaim } from "./schemas";
 
 // Extraction gets the fullest practical view of the source (unlike

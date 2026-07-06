@@ -1,6 +1,6 @@
 import { DEFENDER_MODEL, PROSECUTOR_MODEL } from "@/lib/mesh";
 import type { RetrievedChunk } from "@/lib/retrieve";
-import { chatJson } from "./json";
+import { chatJson } from "@/lib/chatJson";
 import { SideArgumentSchema, type SideArgument } from "./schemas";
 import { buildEvidenceBlock } from "./shared";
 
