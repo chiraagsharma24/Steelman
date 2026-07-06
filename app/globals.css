@@ -32,6 +32,22 @@
     --ring: 222 47% 30%;
 
     --radius: 0.75rem;
+
+    /* Debate palette — editorial, print-inspired, deliberately muted.
+       "for" = defender/pro side, "against" = prosecutor/con side. */
+    --for: 155 30% 24%;
+    --for-foreground: 40 38% 97%;
+    --for-muted: 150 22% 92%;
+
+    --against: 355 42% 30%;
+    --against-foreground: 40 38% 97%;
+    --against-muted: 355 30% 93%;
+
+    --contested: 38 62% 47%;
+    --contested-foreground: 222 47% 14%;
+
+    --unsupported: 10 10% 42%;
+    --unsupported-foreground: 40 38% 97%;
   }
 
   * {

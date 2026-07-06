@@ -43,6 +43,24 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        for: {
+          DEFAULT: "hsl(var(--for))",
+          foreground: "hsl(var(--for-foreground))",
+          muted: "hsl(var(--for-muted))",
+        },
+        against: {
+          DEFAULT: "hsl(var(--against))",
+          foreground: "hsl(var(--against-foreground))",
+          muted: "hsl(var(--against-muted))",
+        },
+        contested: {
+          DEFAULT: "hsl(var(--contested))",
+          foreground: "hsl(var(--contested-foreground))",
+        },
+        unsupported: {
+          DEFAULT: "hsl(var(--unsupported))",
+          foreground: "hsl(var(--unsupported-foreground))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
