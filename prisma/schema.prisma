@@ -33,6 +33,12 @@ enum Confidence {
   LOW
 }
 
+enum VerdictLabel {
+  SUPPORTED
+  CONTESTED
+  UNSUPPORTED
+}
+
 model Document {
   id         String     @id @default(cuid())
   title      String
@@ -78,7 +84,7 @@ model Debate {
 }
 
 model Verdict {
-  id              String     @id @default(cuid())
+  id              String       @id @default(cuid())
   debateId        String
   claim           String
   forArgument     String
@@ -86,8 +92,19 @@ model Verdict {
   forWeakness     String
   againstWeakness String
   confidence      Confidence
+  // Referee's overall call on the claim, plus its reasoning and summaries —
+  // distinct from forArgument/againstArgument, which are each side's full
+  // raw argument text.
+  verdictLabel    VerdictLabel
+  reasoning       String
+  forSummary      String
+  againstSummary  String
+  // Full evidence chunks ({chunkId, content, score}) retrieved and handed to
+  // both sides for this claim.
   evidenceJson    Json
-  createdAt       DateTime   @default(now())
+  // Referee-cited subset ({chunkId, why}) — the evidence it actually leaned on.
+  keyEvidenceJson Json
+  createdAt       DateTime     @default(now())
 
   debate Debate @relation(fields: [debateId], references: [id], onDelete: Cascade)
 }
