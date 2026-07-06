@@ -45,6 +45,14 @@ model Document {
   chunks  Chunk[]
 }
 
+// NOTE: Chunk.embedding also has an HNSW index (vector_cosine_ops), added by
+// hand in migrations/20260706042623_add_chunk_embedding_hnsw_index — Prisma
+// has no way to declare vector index types in schema.prisma, so it isn't
+// represented here. Consequence: `prisma migrate dev` (not --create-only)
+// will propose a migration that DROPS that index, every time, because it
+// sees it as drift. Always inspect a freshly generated migration for a
+// stray `DROP INDEX "Chunk_embedding_hnsw_idx"` and delete that line before
+// applying.
 model Chunk {
   id         String                       @id @default(cuid())
   documentId String
