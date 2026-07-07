@@ -60,12 +60,12 @@ export function InputComposer({
       <div className="text-center">
         <h1 className="font-serif text-5xl italic tracking-tight text-foreground sm:text-6xl">Steelman</h1>
         <p className="mx-auto mt-4 max-w-md text-base text-muted-foreground sm:text-lg">
-          Every argument, cross-examined against the evidence.
+          Every claim, cross-examined against the evidence.
         </p>
       </div>
 
-      <div className="mt-10 rounded-xl border border-border bg-card p-6 shadow-sm sm:p-8">
-        <div className="mb-5 flex flex-wrap gap-2">
+      <div className="mt-8 rounded-xl border border-border bg-card p-6 shadow-sm sm:p-7">
+        <div className="mb-4 flex flex-wrap gap-2">
           {MODES.map((m) => (
             <button
               key={m.key}
@@ -125,7 +125,7 @@ export function InputComposer({
           </label>
         )}
 
-        <Button onClick={handleSubmit} disabled={!canSubmit} className="mt-6 w-full text-base" size="lg">
+        <Button onClick={handleSubmit} disabled={!canSubmit} className="mt-5 w-full text-base" size="lg">
           Cross-examine
         </Button>
       </div>

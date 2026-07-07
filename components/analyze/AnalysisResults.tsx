@@ -66,9 +66,9 @@ export function AnalysisResults({
 
   return (
     <div className="mx-auto max-w-4xl">
-      <div className="mb-6 flex flex-col items-start justify-between gap-4 border-b border-border/70 pb-6 sm:flex-row sm:items-end">
+      <div className="mb-5 flex flex-col items-start justify-between gap-3 border-b border-border/70 pb-5 sm:flex-row sm:items-end">
         <div>
-          <div className="mb-2 flex items-center gap-2">
+          <div className="mb-1.5 flex items-center gap-2">
             <SourceBadge mode={sourceMode} />
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Credibility analysis
@@ -85,32 +85,46 @@ export function AnalysisResults({
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="mb-8 flex flex-col items-center gap-6 rounded-xl border border-border bg-card p-6 sm:flex-row sm:items-center sm:gap-8 sm:p-8"
+        className="mb-5 rounded-xl border border-border bg-card p-5 sm:p-6"
       >
-        <CredibilityScore score={result.credibilityScore} />
-        <div className="w-full flex-1">
-          <DistributionBar distribution={result.distribution} />
-          {checkedClaims.length > 0 && uncertainShare >= 0.5 && (
-            <p className="mt-4 text-sm italic text-muted-foreground">
-              Much of this couldn&rsquo;t be verified against available evidence — treat it with
-              caution rather than as confirmed.
+        <div className="flex flex-col gap-5 sm:flex-row sm:divide-x sm:divide-border">
+          <div className="flex shrink-0 items-center justify-center sm:pr-6">
+            <CredibilityScore score={result.credibilityScore} />
+          </div>
+
+          <div className="flex-1 sm:pl-6 sm:pr-6">
+            <p className="mb-2.5 text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
+              Verdict distribution
             </p>
-          )}
-          {checkedClaims.length === 0 && (
-            <p className="mt-2 text-sm italic text-muted-foreground">
-              No empirically checkable factual claims were found in this source.
+            <DistributionBar distribution={result.distribution} />
+            {checkedClaims.length > 0 && uncertainShare >= 0.5 && (
+              <p className="mt-3 text-sm italic text-muted-foreground">
+                Much of this couldn&rsquo;t be verified against available evidence — treat it with
+                caution rather than as confirmed.
+              </p>
+            )}
+            {checkedClaims.length === 0 && (
+              <p className="mt-2 text-sm italic text-muted-foreground">
+                No empirically checkable factual claims were found in this source.
+              </p>
+            )}
+          </div>
+
+          <div className="sm:w-52 sm:shrink-0 sm:pl-6">
+            <p className="mb-2.5 text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
+              Cross-model consensus
             </p>
-          )}
-          <ConsensusSummary
-            unanimous={consensusCounts.unanimous}
-            majority={consensusCounts.majority}
-            split={consensusCounts.split}
-            total={checkedClaims.length}
-          />
+            <ConsensusSummary
+              unanimous={consensusCounts.unanimous}
+              majority={consensusCounts.majority}
+              split={consensusCounts.split}
+              total={checkedClaims.length}
+            />
+          </div>
         </div>
       </motion.div>
 
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <ClaimFilters
           activeTab={tab}
           onTabChange={setTab}
@@ -123,7 +137,7 @@ export function AnalysisResults({
         </p>
       </div>
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2.5">
         {filteredClaims.length === 0 ? (
           <p className="rounded-lg border border-border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
             No claims match this filter.

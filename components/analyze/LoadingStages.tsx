@@ -29,7 +29,7 @@ export function LoadingStages({ activeIndex }: { activeIndex: number }) {
   }, [activeIndex]);
 
   return (
-    <div className="flex flex-col items-center gap-10 py-20">
+    <div className="flex flex-col items-center gap-8 py-16">
       <motion.div
         className="h-9 w-9 rounded-full border-2 border-foreground/15 border-t-foreground/60"
         animate={{ rotate: 360 }}

@@ -10,7 +10,7 @@ export function CredibilityScore({ score }: { score: number }) {
   const colorClass = score >= 70 ? "text-for" : score >= 40 ? "text-contested" : "text-against";
 
   return (
-    <div className="relative flex h-32 w-32 shrink-0 items-center justify-center sm:h-36 sm:w-36">
+    <div className="relative flex h-28 w-28 shrink-0 items-center justify-center sm:h-32 sm:w-32">
       <svg className="h-full w-full -rotate-90" viewBox="0 0 120 120" aria-hidden>
         <circle
           cx="60"
@@ -37,8 +37,8 @@ export function CredibilityScore({ score }: { score: number }) {
         />
       </svg>
       <div className="absolute flex flex-col items-center">
-        <span className={cn("font-serif text-4xl sm:text-5xl", colorClass)}>{score}</span>
-        <span className="text-[0.65rem] uppercase tracking-wider text-muted-foreground">Credibility</span>
+        <span className={cn("font-serif text-3xl sm:text-4xl", colorClass)}>{score}</span>
+        <span className="text-[0.6rem] uppercase tracking-widest text-muted-foreground">Credibility</span>
       </div>
     </div>
   );
