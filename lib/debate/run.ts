@@ -104,7 +104,7 @@ export async function runDebate(input: RunDebateInput): Promise<RunDebateResult>
   if (input.documentId) {
     const doc = await prisma.document.findUnique({ where: { id: input.documentId } });
     if (!doc) {
-      throw new AppError("validation_error", "documentId not found.", 404);
+      throw new AppError("validation_error", "We could not find that document to analyze. Please try again from the start.", 404);
     }
     documentTitle = doc.title;
     if (!sourceText) sourceText = doc.rawText ?? undefined;

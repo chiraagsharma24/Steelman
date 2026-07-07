@@ -13,13 +13,17 @@ function parseAndValidate<T>(raw: string, schema: z.ZodType<T>): T {
   try {
     json = JSON.parse(stripCodeFences(raw));
   } catch {
-    throw new AppError("validation_error", "Model returned invalid JSON.", 502);
+    // Calm, human message for anything that surfaces to the UI (e.g. a
+    // failed claim's error text) — the raw parse error isn't meaningful to
+    // an end user. Full detail already sits in the caller's console logs.
+    throw new AppError("validation_error", "The model's response could not be understood.", 502);
   }
   const result = schema.safeParse(json);
   if (!result.success) {
+    console.error("[chatJson] schema validation failed:", result.error.message);
     throw new AppError(
       "validation_error",
-      `Model output failed schema validation: ${result.error.message}`,
+      "The model's response didn't match the expected format.",
       502
     );
   }
