@@ -163,7 +163,11 @@ export async function embed(params: EmbeddingsParams): Promise<EmbeddingsRespons
 // background job. The SDK has no typed retrieve/poll method, so we poll the
 // (undocumented-in-SDK, but real) GET /v1/responses/{id} endpoint directly.
 const RESPONSE_POLL_INTERVAL_MS = 1500;
-const RESPONSE_POLL_MAX_WAIT_MS = 45_000;
+// Kept comfortably under the 60s maxDuration on the analyze routes (see
+// app/api/analyze/route.ts and app/api/analyze/[id]/route.ts) — each of
+// those handles at most one web search plus one 3-model consensus round per
+// request, so this needs headroom for the consensus call after it returns.
+const RESPONSE_POLL_MAX_WAIT_MS = 30_000;
 const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
 async function pollResponseUntilDone(id: string): Promise<ResponsesResponse> {

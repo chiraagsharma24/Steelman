@@ -69,6 +69,8 @@ enum Agreement {
 }
 
 enum ClaimAnalysisStatus {
+  PENDING
+  PROCESSING
   DONE
   FAILED
 }
@@ -177,6 +179,22 @@ model ClaimAnalysis {
   status     ClaimAnalysisStatus
   error      String?
 
+  // Position in the original classification order. The analysis pipeline
+  // runs across many separate polled HTTP requests (one claim processed per
+  // GET /api/analyze/[id] call, see lib/analyze/run.ts) instead of one long
+  // request, so this is what lets a later poll pick up the next PENDING claim
+  // in the right order and lets the final result be reassembled in order.
+  sortIndex Int @default(0)
+  // Only meaningful while checkable === true: whether this specific claim
+  // was chosen (see WEB_VERIFY_LIMIT in lib/analyze/run.ts) to spend a real,
+  // billable web search when it gets processed.
+  webEligible Boolean @default(false)
+  // Set when a poll atomically claims this row (PENDING -> PROCESSING).
+  // Lets a later poll detect and recover a claim abandoned mid-work (e.g.
+  // the serverless invocation that claimed it crashed or hit its own
+  // timeout) instead of leaving the analysis stuck forever.
+  processingStartedAt DateTime?
+
   // Populated only when checkable === true and status === DONE.
   factVerdict     FactVerdict?
   factConfidence  Confidence?
@@ -195,4 +213,5 @@ model ClaimAnalysis {
   analysis Analysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
 
   @@index([analysisId])
+  @@index([analysisId, sortIndex])
 }
