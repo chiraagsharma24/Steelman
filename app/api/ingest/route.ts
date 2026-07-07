@@ -10,6 +10,11 @@ import { ingestAndStore } from "@/lib/ingest/store";
 import type { IngestSource } from "@/lib/ingest/types";
 
 export const runtime = "nodejs";
+// Embedding a long source (many chunks, batched at 50/request — see
+// lib/ingest/store.ts) is the slow part here; 60s is generous headroom for
+// anything this app currently ingests, and matches the ceiling used on the
+// analyze routes.
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
