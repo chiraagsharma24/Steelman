@@ -5,18 +5,22 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:cursor-not-allowed",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        // Disabled state is deliberately NOT a flat opacity wash — a softened
+        // ink-navy outline (tinted bg, visible border, muted navy text) reads
+        // as "a real button awaiting input," not a broken/greyed-out element.
+        default:
+          "bg-primary text-primary-foreground hover:bg-primary/90 disabled:border disabled:border-primary/30 disabled:bg-primary-muted disabled:text-primary/55",
         outline:
-          "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+          "border border-input bg-background hover:bg-accent hover:text-accent-foreground disabled:border-border/60 disabled:text-muted-foreground/60",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50",
+        ghost: "hover:bg-accent hover:text-accent-foreground disabled:opacity-50",
+        link: "text-primary underline-offset-4 hover:underline disabled:opacity-50",
         destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50",
       },
       size: {
         default: "h-10 px-4 py-2",

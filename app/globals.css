@@ -14,6 +14,11 @@
 
     --primary: 222 47% 16%;
     --primary-foreground: 40 38% 97%;
+    /* Solid (not alpha-blended) tint for disabled/awaiting-input states —
+       simple opacity of navy over the near-white card washes out to flat
+       grey since the lightness gap is too large; a precomputed tint reads
+       as clearly, intentionally "soft navy" instead. */
+    --primary-muted: 222 35% 88%;
 
     --secondary: 40 20% 92%;
     --secondary-foreground: 222 47% 16%;
