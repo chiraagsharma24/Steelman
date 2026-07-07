@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AppError } from "@/lib/mesh";
-import { handleApiError } from "@/lib/api";
-import { runAnalysis } from "@/lib/analyze/run";
+import { handleApiError, withCors } from "@/lib/api";
+import { startAnalysis } from "@/lib/analyze/run";
 
 export const runtime = "nodejs";
+// Classification (the only work this route does) is a handful of chat calls
+// over the source text — comfortably fast, but generous headroom in case of
+// an unusually long source. The actual fact-checking loop, which is what
+// used to make this route take minutes, now happens across separate
+// GET /api/analyze/[id] polls (see lib/analyze/run.ts) instead of here.
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,9 +25,13 @@ export async function POST(request: NextRequest) {
       throw new AppError("validation_error", "Provide `documentId` or `inputText`.", 400);
     }
 
-    const result = await runAnalysis({ documentId, inputText, title });
-    return NextResponse.json({ ok: true, ...result });
+    const result = await startAnalysis({ documentId, inputText, title });
+    return withCors(NextResponse.json({ ok: true, ...result }));
   } catch (err) {
-    return handleApiError(err);
+    return withCors(handleApiError(err));
   }
+}
+
+export async function OPTIONS() {
+  return withCors(new NextResponse(null, { status: 204 }));
 }

@@ -4,9 +4,9 @@ import { useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { InputComposer, type ComposerSubmission, type SourceMode } from "./InputComposer";
-import { LoadingStages, LOADING_STAGES } from "./LoadingStages";
+import { LoadingStages } from "./LoadingStages";
 import { AnalysisResults } from "./AnalysisResults";
-import type { RunAnalysisResult } from "@/lib/analyze/run";
+import type { AnalysisPollResult, RunAnalysisResult } from "@/lib/analyze/run";
 
 type Stage = "input" | "loading" | "results" | "error";
 
@@ -20,11 +20,25 @@ interface IngestSuccess {
   title: string;
   chunkCount: number;
 }
+interface AnalyzeStarted {
+  ok: true;
+  analysisId: string;
+  title: string;
+  totalClaims: number;
+  checkableCount: number;
+}
+interface AnalyzePoll extends AnalysisPollResult {
+  ok: true;
+}
 interface AnalyzeSuccess extends RunAnalysisResult {
   ok: true;
 }
 
-const STAGE_ADVANCE_MS = 3200;
+// How often the loading screen re-checks analysis progress. Each poll does
+// real work server-side (one claim gets fact-checked per call — see
+// stepAnalysis in lib/analyze/run.ts), so this is a work cadence, not just a
+// UI refresh rate.
+const POLL_INTERVAL_MS = 2000;
 
 const SOURCE_TYPE_BY_MODE: Record<SourceMode, string> = {
   TEXT: "TEXT",
@@ -35,25 +49,54 @@ const SOURCE_TYPE_BY_MODE: Record<SourceMode, string> = {
 
 export function AnalyzeFlow() {
   const [stage, setStage] = useState<Stage>("input");
-  const [loadingIndex, setLoadingIndex] = useState(0);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [result, setResult] = useState<AnalyzeSuccess | null>(null);
   const [documentId, setDocumentId] = useState<string | undefined>(undefined);
   const [sourceMode, setSourceMode] = useState<SourceMode>("TEXT");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cancelledRef = useRef(false);
 
   function stopAdvancing() {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
+    cancelledRef.current = true;
+  }
+
+  async function pollUntilDone(analysisId: string): Promise<AnalyzeSuccess | ApiFailure> {
+    for (;;) {
+      if (cancelledRef.current) return { ok: false, error: { code: "cancelled", message: "Cancelled." } };
+
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+      if (cancelledRef.current) return { ok: false, error: { code: "cancelled", message: "Cancelled." } };
+
+      const res = await fetch(`/api/analyze/${analysisId}`);
+      const data = (await res.json()) as AnalyzePoll | ApiFailure;
+      if (!data.ok) return data;
+
+      setProgress({ done: data.doneCount, total: data.totalClaims });
+
+      if (data.status === "FAILED") {
+        return { ok: false, error: { code: "unknown", message: "This analysis failed to complete." } };
+      }
+      if (data.status === "DONE") {
+        return {
+          ok: true,
+          analysisId: data.analysisId,
+          title: data.title,
+          credibilityScore: data.credibilityScore as number,
+          distribution: data.distribution as RunAnalysisResult["distribution"],
+          framingCounts: data.framingCounts as Record<string, number>,
+          claims: data.claims,
+        };
+      }
+      // status === "RUNNING": loop and poll again.
     }
   }
 
   async function handleSubmit(submission: ComposerSubmission) {
     setStage("loading");
-    setLoadingIndex(0);
+    setProgress(null);
     setErrorMessage(null);
     setSourceMode(submission.mode);
+    cancelledRef.current = false;
 
     try {
       let ingestRes: Response;
@@ -81,23 +124,23 @@ export function AnalyzeFlow() {
       }
       setDocumentId(ingestData.documentId);
 
-      setLoadingIndex(1);
-      let i = 1;
-      intervalRef.current = setInterval(() => {
-        i = Math.min(i + 1, LOADING_STAGES.length - 1);
-        setLoadingIndex(i);
-      }, STAGE_ADVANCE_MS);
-
-      const analyzeRes = await fetch("/api/analyze", {
+      const startRes = await fetch("/api/analyze", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ documentId: ingestData.documentId }),
       });
-      const analyzeData = (await analyzeRes.json()) as AnalyzeSuccess | ApiFailure;
+      const startData = (await startRes.json()) as AnalyzeStarted | ApiFailure;
+      if (!startData.ok) {
+        setErrorMessage(startData.error.message);
+        setStage("error");
+        return;
+      }
+      setProgress({ done: 0, total: startData.totalClaims });
 
-      stopAdvancing();
+      const analyzeData = await pollUntilDone(startData.analysisId);
 
       if (!analyzeData.ok) {
+        if (analyzeData.error.code === "cancelled") return;
         setErrorMessage(analyzeData.error.message);
         setStage("error");
         return;
@@ -143,7 +186,7 @@ export function AnalyzeFlow() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
           >
-            <LoadingStages activeIndex={loadingIndex} />
+            <LoadingStages progress={progress} />
           </motion.div>
         )}
 

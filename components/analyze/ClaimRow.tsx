@@ -11,6 +11,22 @@ import { ConfidenceMeter } from "./ConfidenceMeter";
 import { GroundingBadge } from "./GroundingBadge";
 import type { ClaimAnalysisResult } from "@/lib/analyze/run";
 
+const NON_CHECKABLE_COPY: Record<string, { label: string; sentence: string }> = {
+  OPINION: { label: "Opinion", sentence: "This is an opinion, so it wasn’t fact-checked against evidence." },
+  PREDICTION: {
+    label: "Prediction",
+    sentence: "This is a prediction about the future, so it wasn’t fact-checked against evidence.",
+  },
+  VALUE_JUDGMENT: {
+    label: "Value judgment",
+    sentence: "This is a value judgment, so it wasn’t fact-checked against evidence.",
+  },
+  FACTUAL: {
+    label: "Too vague to verify",
+    sentence: "This claim is too general to check against evidence, so it wasn’t fact-checked.",
+  },
+};
+
 interface DebateOnDemandState {
   status: "idle" | "loading" | "done" | "error";
   prosecutor?: string;
@@ -71,11 +87,11 @@ export function ClaimRow({
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex w-full items-start gap-3 px-4 py-3 text-left"
+        className="flex w-full items-start gap-3 px-4 py-2.5 text-left"
       >
         <div className="min-w-0 flex-1">
           <p className="font-serif text-base leading-snug text-foreground">{claim.claimText}</p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             {claim.checkable && claim.factVerdict ? (
               <>
                 <FactVerdictChip verdict={claim.factVerdict} />
@@ -91,9 +107,11 @@ export function ClaimRow({
               </>
             ) : claim.status === "FAILED" ? (
               <span className="text-xs italic text-unsupported">Couldn&rsquo;t be checked</span>
+            ) : claim.status === "PENDING" ? (
+              <span className="text-xs italic text-muted-foreground">Checking…</span>
             ) : (
               <span className="rounded-full border border-border px-2.5 py-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {claim.claimType.replace("_", " ").toLowerCase()}
+                {NON_CHECKABLE_COPY[claim.claimType]?.label ?? claim.claimType.replace("_", " ").toLowerCase()}
               </span>
             )}
             {claim.framing.map((f) => (
@@ -118,11 +136,13 @@ export function ClaimRow({
             transition={{ duration: 0.2, ease: "easeOut" }}
             className="overflow-hidden"
           >
-            <div className="border-t border-border/70 px-4 py-4">
+            <div className="border-t border-border/70 px-4 py-3.5">
               {claim.status === "FAILED" ? (
                 <p className="text-sm text-unsupported">{claim.error}</p>
+              ) : claim.status === "PENDING" ? (
+                <p className="text-sm italic text-muted-foreground">Still being checked…</p>
               ) : claim.checkable ? (
-                <div className="space-y-4">
+                <div className="space-y-3.5">
                   {claim.factExplanation && (
                     <p className="text-sm leading-relaxed text-foreground">{claim.factExplanation}</p>
                   )}
@@ -210,8 +230,8 @@ export function ClaimRow({
                 </div>
               ) : (
                 <p className="text-sm italic text-muted-foreground">
-                  This is a {claim.claimType.replace("_", " ").toLowerCase()}, not an empirically checkable
-                  factual claim — it wasn&rsquo;t fact-checked.
+                  {NON_CHECKABLE_COPY[claim.claimType]?.sentence ??
+                    "This claim wasn’t fact-checked against evidence."}
                 </p>
               )}
             </div>

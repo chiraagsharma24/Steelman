@@ -12,18 +12,32 @@ export const LOADING_STAGES = [
   "Scoring credibility",
 ] as const;
 
-// Real web searches run as background jobs and can take a while, especially
-// with several checkable claims queued behind each other. Once we've been on
-// the last stage this long, reassure the user rather than leave them staring
-// at an apparently-stuck spinner.
+// Reassure the user once we've been in the (open-ended) claim-checking phase
+// this long, rather than leaving them staring at an apparently-stuck spinner
+// — real web searches run as background jobs and several claims queued
+// behind each other (checked one at a time, see stepAnalysis in
+// lib/analyze/run.ts) can genuinely take a while.
 const LONG_WAIT_MS = 20_000;
 
-export function LoadingStages({ activeIndex }: { activeIndex: number }) {
+export interface LoadingProgress {
+  done: number;
+  total: number;
+}
+
+function stageIndexFor(progress: LoadingProgress | null): number {
+  if (!progress) return 0;
+  if (progress.total === 0) return 1;
+  if (progress.done >= progress.total) return 4;
+  return progress.done === 0 ? 1 : 2;
+}
+
+export function LoadingStages({ progress }: { progress: LoadingProgress | null }) {
+  const activeIndex = stageIndexFor(progress);
   const [showLongWaitNote, setShowLongWaitNote] = useState(false);
 
   useEffect(() => {
     setShowLongWaitNote(false);
-    if (activeIndex < LOADING_STAGES.length - 1) return;
+    if (activeIndex < 2) return;
     const timer = setTimeout(() => setShowLongWaitNote(true), LONG_WAIT_MS);
     return () => clearTimeout(timer);
   }, [activeIndex]);
@@ -67,6 +81,11 @@ export function LoadingStages({ activeIndex }: { activeIndex: number }) {
           );
         })}
       </ol>
+      {progress && progress.total > 0 && (
+        <p className="text-sm text-muted-foreground" aria-live="polite">
+          {progress.done} of {progress.total} claim{progress.total === 1 ? "" : "s"} checked
+        </p>
+      )}
       {showLongWaitNote && (
         <motion.p
           initial={{ opacity: 0 }}
