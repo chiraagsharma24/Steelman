@@ -5,6 +5,7 @@ import { handleApiError } from "@/lib/api";
 import { fromText } from "@/lib/ingest/text";
 import { fromUrl } from "@/lib/ingest/url";
 import { fromPdf } from "@/lib/ingest/file";
+import { fromYoutube } from "@/lib/ingest/youtube";
 import { ingestAndStore } from "@/lib/ingest/store";
 import type { IngestSource } from "@/lib/ingest/types";
 
@@ -42,10 +43,16 @@ export async function POST(request: NextRequest) {
         }
         source = await fromUrl(body.url);
         sourceType = "URL";
+      } else if (body.sourceType === "YOUTUBE") {
+        if (typeof body.url !== "string") {
+          throw new AppError("validation_error", "`url` is required for sourceType YOUTUBE.", 400);
+        }
+        source = await fromYoutube(body.url);
+        sourceType = "YOUTUBE";
       } else {
         throw new AppError(
           "validation_error",
-          "`sourceType` must be one of TEXT, URL, or FILE (FILE requires multipart/form-data).",
+          "`sourceType` must be one of TEXT, URL, YOUTUBE, or FILE (FILE requires multipart/form-data).",
           400
         );
       }

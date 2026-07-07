@@ -18,6 +18,7 @@ enum SourceType {
   TEXT
   FILE
   URL
+  YOUTUBE
 }
 
 enum DebateStatus {
@@ -39,6 +40,39 @@ enum VerdictLabel {
   UNSUPPORTED
 }
 
+// --- Day 5: neutral claim classification + web-grounded fact-check ---
+
+enum ClaimType {
+  FACTUAL
+  OPINION
+  PREDICTION
+  VALUE_JUDGMENT
+}
+
+enum FactVerdict {
+  SUPPORTED
+  MISLEADING
+  FALSE
+  UNVERIFIABLE
+  NEEDS_CONTEXT
+}
+
+enum Grounding {
+  WEB
+  MODEL_KNOWLEDGE
+}
+
+enum Agreement {
+  UNANIMOUS
+  MAJORITY
+  SPLIT
+}
+
+enum ClaimAnalysisStatus {
+  DONE
+  FAILED
+}
+
 model Document {
   id         String     @id @default(cuid())
   title      String
@@ -47,8 +81,9 @@ model Document {
   meshFileId String?
   createdAt  DateTime   @default(now())
 
-  debates Debate[]
-  chunks  Chunk[]
+  debates   Debate[]
+  chunks    Chunk[]
+  analyses  Analysis[]
 }
 
 // NOTE: Chunk.embedding also has an HNSW index (vector_cosine_ops), added by
@@ -107,4 +142,57 @@ model Verdict {
   createdAt       DateTime     @default(now())
 
   debate Debate @relation(fields: [debateId], references: [id], onDelete: Cascade)
+}
+
+// Neutral claim-classification + web-grounded fact-check analysis (Day 5).
+// Separate from Debate/Verdict (the two-sided for/against engine, still used
+// on demand for genuinely contested individual claims) — this is a broader
+// claim-by-claim credibility breakdown of an entire source.
+model Analysis {
+  id                String       @id @default(cuid())
+  documentId        String?
+  title             String
+  status            DebateStatus @default(PENDING)
+  // 0-100, see lib/analyze/score.ts for the documented formula.
+  credibilityScore  Int?
+  // % breakdown across FactVerdict categories, over checkable claims only.
+  distributionJson  Json?
+  // counts of each framing technique found across all claims.
+  framingCountsJson Json?
+  createdAt         DateTime     @default(now())
+
+  document Document?       @relation(fields: [documentId], references: [id])
+  claims   ClaimAnalysis[]
+}
+
+model ClaimAnalysis {
+  id         String              @id @default(cuid())
+  analysisId String
+  claimText  String
+  claimType  ClaimType
+  checkable  Boolean
+  // string[] of neutrally-named rhetorical/framing techniques, e.g.
+  // "emotional language", "cherry-picking" — empty array is the default.
+  framingJson Json
+  status     ClaimAnalysisStatus
+  error      String?
+
+  // Populated only when checkable === true and status === DONE.
+  factVerdict     FactVerdict?
+  factConfidence  Confidence?
+  factExplanation String?
+  // [{title, url, snippet}] — real sources if grounding === WEB, else empty.
+  sourcesJson     Json?
+  correction      String?
+  grounding       Grounding?
+
+  // Multi-model cross-check: {verdicts: [{model, verdict}], agreement}.
+  consensusJson Json?
+  agreement     Agreement?
+
+  createdAt DateTime @default(now())
+
+  analysis Analysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+
+  @@index([analysisId])
 }

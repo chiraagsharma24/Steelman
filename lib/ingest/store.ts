@@ -8,6 +8,11 @@ import type { IngestSource } from "./types";
 const EMBED_BATCH_SIZE = 50;
 const INSERT_BATCH_SIZE = 200;
 const TRANSACTION_TIMEOUT_MS = 20_000;
+// Prisma's default maxWait (2s, connection-acquisition wait, distinct from
+// the execution `timeout` above) is too tight for Neon's pooled connections
+// under any real load — bump it rather than let transient pool contention
+// surface as a hard failure.
+const TRANSACTION_MAX_WAIT_MS = 10_000;
 
 export interface IngestResult {
   documentId: string;
@@ -80,7 +85,7 @@ export async function ingestAndStore(
         `;
       }
     },
-    { timeout: TRANSACTION_TIMEOUT_MS }
+    { timeout: TRANSACTION_TIMEOUT_MS, maxWait: TRANSACTION_MAX_WAIT_MS }
   );
 
   console.log(`[ingest] stored document ${documentId} with ${chunks.length} chunks`);
