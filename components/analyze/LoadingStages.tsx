@@ -1,17 +1,33 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 export const LOADING_STAGES = [
-  "Reading your source",
+  "Reading the source",
   "Extracting claims",
-  "Gathering evidence",
-  "Cross-examining",
-  "Delivering verdict",
+  "Fact-checking against the web",
+  "Cross-checking across models",
+  "Scoring credibility",
 ] as const;
 
+// Real web searches run as background jobs and can take a while, especially
+// with several checkable claims queued behind each other. Once we've been on
+// the last stage this long, reassure the user rather than leave them staring
+// at an apparently-stuck spinner.
+const LONG_WAIT_MS = 20_000;
+
 export function LoadingStages({ activeIndex }: { activeIndex: number }) {
+  const [showLongWaitNote, setShowLongWaitNote] = useState(false);
+
+  useEffect(() => {
+    setShowLongWaitNote(false);
+    if (activeIndex < LOADING_STAGES.length - 1) return;
+    const timer = setTimeout(() => setShowLongWaitNote(true), LONG_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [activeIndex]);
+
   return (
     <div className="flex flex-col items-center gap-10 py-20">
       <motion.div
@@ -51,6 +67,17 @@ export function LoadingStages({ activeIndex }: { activeIndex: number }) {
           );
         })}
       </ol>
+      {showLongWaitNote && (
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.4 }}
+          className="max-w-xs text-center text-sm italic text-muted-foreground"
+        >
+          Real source checks can take a little longer, especially with several claims to verify.
+          Still working — hang tight.
+        </motion.p>
+      )}
     </div>
   );
 }
