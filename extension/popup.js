@@ -105,7 +105,19 @@ async function extractActivePage() {
 
 function buildIngestBody(page) {
   if (page.kind === "youtube") {
-    return { sourceType: "YOUTUBE", url: page.url };
+    // Sent as TEXT, not YOUTUBE — the transcript was already extracted
+    // client-side (extractor.js), in the user's own browser. This
+    // deliberately bypasses the API's server-side transcript fetch, which
+    // YouTube blocks from Vercel's datacenter IPs (works from a developer's
+    // home IP in local testing, fails identically in production — the
+    // transcript itself was never actually unavailable).
+    const transcript = (page.transcript || "").slice(0, MAX_TEXT_CHARS);
+    if (transcript.trim().length < 20) {
+      throw new Error(
+        "Couldn't find a transcript on this page — captions may be off for this video, or it doesn't have any."
+      );
+    }
+    return { sourceType: "TEXT", text: transcript, title: page.title || undefined };
   }
   const text = (page.text || "").slice(0, MAX_TEXT_CHARS);
   if (text.trim().length < 20) {
@@ -229,7 +241,7 @@ async function run() {
     showLoading("Reading this page…");
     const page = await extractActivePage();
 
-    showLoading(page.kind === "youtube" ? "Fetching the transcript…" : "Sending this page to Steelman…");
+    showLoading(page.kind === "youtube" ? "Sending the transcript to Steelman…" : "Sending this page to Steelman…");
     const ingestBody = buildIngestBody(page);
     const ingestResult = await apiFetch("/api/ingest", {
       method: "POST",
