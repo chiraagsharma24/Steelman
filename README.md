@@ -1,113 +1,133 @@
 # Steelman
 
-Steelman is an evidence-grounded adversarial argument analyzer. You give it a
-claim or a source document; it runs a structured debate — a prosecutor model
-arguing against, a defender model arguing for, and a referee model weighing
-both against retrieved evidence — and returns a verdict with confidence,
-not just an opinion.
+**Every claim, cross-examined.**
 
-All AI calls go through **MeshAPI**, an OpenAI-compatible model gateway, via
-the `meshapi-node-sdk`. App data (documents, debates, verdicts, chunk
-embeddings) lives in Postgres (Neon) via Prisma. Retrieval is built on our
-own `Chunk` model + pgvector — the installed Mesh SDK (v0.1.0) has no
-`rag` namespace, so embeddings are generated with `embed()` and stored/
-searched ourselves.
+Steelman takes anything you're not sure you should believe — an article, a PDF,
+a Word doc, pasted text, or a YouTube video — and puts every claim in it on trial.
+
+It extracts each factual claim, then has **three different AI models (OpenAI,
+Anthropic, and Google) independently judge it**, pulling live sources from the web
+where it can. You get a verdict on every claim — `SUPPORTED`, `NEEDS_CONTEXT`,
+`MISLEADING`, `FALSE`, or an honest `UNVERIFIABLE` — with corrections and the
+models' own agreement or disagreement shown openly. When the models split on a
+claim, Steelman shows you the split instead of faking confidence.
+
+It's neutral by design: it judges claims, never the author, and holds every claim
+to the same standard. And it ships with a **browser extension** so you can
+cross-examine whatever page you're on without leaving the tab.
+
+Built for the MeshAPI Hackathon (July 2026). **Every AI call routes through the
+Mesh API** — remove Mesh and the product doesn't exist.
+
+🔗 **Live:** https://steelman-six.vercel.app
+
+---
+
+## What it does
+
+Give Steelman a source — **pasted text, a URL, a PDF, or a YouTube link** — and it
+produces a credibility analysis:
+
+- **Extracts and classifies every claim** (factual / opinion / prediction / value
+  judgment), flagging only genuinely checkable factual claims for verification.
+- **Fact-checks each checkable claim** and returns a calibrated verdict with a
+  plain-language explanation and a corrected version when a claim is wrong.
+- **Cross-model consensus:** every checkable claim is judged independently by three
+  models from OpenAI, Anthropic, and Google. Steelman reports whether they were
+  unanimous, majority, or split — and exposes the full for/against reasoning when
+  they disagree.
+- **Live web verification:** for key claims it pulls real sources from the web and
+  cites them (with an honest fallback to model-knowledge grounding, clearly labeled).
+- **Neutral framing detection:** flags rhetorical techniques objectively, with
+  symmetric standards across viewpoints.
+- **A scored credibility dashboard** with a verdict distribution and a claim-by-claim
+  breakdown — plus a **Chrome extension** for one-click analysis of any page.
+
+## How Mesh powers Steelman
+
+Mesh is the entire reasoning engine, not a feature bolted on. Every AI call routes
+through it, and all SDK calls are centralized in **`lib/mesh.ts`**:
+
+| Capability | Mesh call | Location |
+|---|---|---|
+| Central Mesh client + model constants + error handling | `new MeshAPI(...)` | `lib/mesh.ts:120` (`getMeshClient`) |
+| Claim extraction, classification & multi-model consensus fact-checking | `chat.completions.create` | `lib/mesh.ts:132` (`chat`) → used in `lib/analyze/*` |
+| Chunk embeddings for semantic retrieval | `embeddings.create` | `lib/mesh.ts:155` (`embed`) → `lib/ingest/store.ts`, `lib/retrieve.ts` |
+| Live web-grounded fact-checking | `responses.create` + `web_search_preview` | `lib/mesh.ts:206` (`responses`) → `lib/analyze/factcheck.ts` |
+| Multi-model fanout (comparison probe) | `compare.create` | `lib/mesh.ts:144` (`compare`) |
+
+The multi-model consensus — the core of the product — is only possible because Mesh
+routes one codebase to three model providers through a single API.
+
+## How it works (pipeline)
+
+1. **Ingest** — text / URL / PDF / YouTube (transcript) → normalized text.
+2. **Chunk & embed** — sentence-aware chunking → Mesh embeddings → Postgres + pgvector.
+3. **Classify claims** — extract discrete, self-contained claims; mark which are checkable.
+4. **Fact-check** — each checkable claim verified; live web grounding when available,
+   model-knowledge fallback otherwise (labeled).
+5. **Cross-model consensus** — three model families judge each claim independently.
+6. **Score & present** — credibility score, verdict distribution, claim-by-claim dashboard.
 
 ## Stack
 
-- Next.js 14 (App Router) + TypeScript (strict)
-- Tailwind CSS + shadcn/ui (classic v3 recipe: Radix + CVA) + Framer Motion
-- Prisma 5 + PostgreSQL (Neon), with the `pgvector` extension for chunk embeddings
-- `meshapi-node-sdk` — chat, compare, and embeddings; wrapped in `lib/mesh.ts`
+- **Next.js 14** (App Router) + **TypeScript** (strict)
+- **Mesh API** via `meshapi-node-sdk` — all AI calls (chat, embeddings, responses, compare)
+- **Postgres (Neon) + pgvector** + **Prisma** — app data and vector search
+- **Tailwind CSS + shadcn/ui + Framer Motion** — editorial UI
+- Ingestion: `youtube-transcript-plus`, `@mozilla/readability`, `pdf-parse`
+- **Chrome extension** (Manifest V3) in `/extension` — one-click analysis of any page
 
 ## Setup
 
-1. **Install dependencies**
-
-   ```bash
-   npm install
-   ```
-
-2. **Configure environment variables**
-
-   Copy `.env.example` to `.env` (a placeholder `.env` already exists) and fill in:
-
-   ```bash
-   MESH_API_KEY=rsk_...       # your MeshAPI data-plane key
-   MESH_BASE_URL=https://api.meshapi.ai
-   DATABASE_URL="postgresql://user:password@host/dbname?sslmode=require"
-   ```
-
-   `DATABASE_URL` should be a Neon Postgres connection string (the pooled
-   connection string from your Neon dashboard works fine).
-
-3. **Set up the database**
-
-   ```bash
-   npx prisma migrate dev --name init
-   ```
-
-   This creates `Document`, `Debate`, `Verdict`, and `Chunk` tables, enables
-   the `vector` Postgres extension, and generates the Prisma Client. Neon
-   supports `pgvector` natively — no extra setup needed on their end.
-
-4. **Run the dev server**
-
-   ```bash
-   npm run dev
-   ```
-
-   Open [http://localhost:3000](http://localhost:3000).
-
-## Smoke-testing the Mesh integration
-
-The home page has a "Test Mesh Connection" button that hits `GET /api/smoke`.
-That route makes one real `chat.completions.create` call and one real
-`embeddings.create` call — it's the fastest way to confirm your Mesh
-credentials and network path actually work before building features on top.
-
-You can also hit it directly:
-
 ```bash
-curl http://localhost:3000/api/smoke
+git clone <REPO_URL>
+cd Steelman
+npm install
+
+# configure environment
+cp .env.example .env
+# set: MESH_API_KEY (rsk_...), MESH_BASE_URL=https://api.meshapi.ai, DATABASE_URL (Neon pooled)
+
+npx prisma generate
+npx prisma migrate deploy   # or `migrate dev` on a fresh DB
+
+npm run dev
+# open http://localhost:3000
 ```
 
-**Success** looks like:
+> **Note on the vector index:** the pgvector HNSW index is defined in a hand-written
+> migration (Prisma has no vector-index-type support). If you run `prisma migrate dev`,
+> check the generated migration for a stray `DROP INDEX "Chunk_embedding_hnsw_idx"` and
+> remove that line before applying.
 
-```json
-{
-  "ok": true,
-  "reply": "MESH OK",
-  "tokens": 23,
-  "embedding": { "model": "openai/text-embedding-3-small", "dimensions": 1536 }
-}
-```
+> **Note on live web verification:** Steelman's web-grounded fact-checking activates
+> when the Mesh account has balance for background research jobs; otherwise it cleanly
+> falls back to model-knowledge grounding, honestly labeled on every claim. No code
+> change is needed to switch between them.
 
-**Failure** (e.g. missing/invalid key, rate limit, model unavailable) returns
-a structured error instead of a crash:
+## Browser extension
 
-```json
-{
-  "ok": false,
-  "error": { "code": "unauthorized", "message": "Mesh rejected the request credentials. Check MESH_API_KEY." }
-}
-```
+The `/extension` folder contains a Manifest V3 Chrome extension that analyzes the page
+you're on (article text extracted in the browser, or a YouTube URL) by calling the
+deployed Steelman API, and renders the verdict in place.
 
-## Project structure
+To load it:
+1. `chrome://extensions` → enable **Developer mode**
+2. **Load unpacked** → select the `/extension` folder
+3. Open any article, click the Steelman icon, and get a claim-by-claim verdict.
 
-```
-app/
-  api/smoke/route.ts   # Mesh integration smoke test
-  page.tsx             # home page
-  layout.tsx
-lib/
-  mesh.ts              # Mesh client, chat/compare/embed helpers, AppError, model constants
-  prisma.ts            # Prisma client singleton
-  utils.ts             # cn() helper (shadcn)
-components/ui/         # shadcn/ui primitives (Button, Card)
-prisma/schema.prisma    # Document, Debate, Verdict, Chunk (+ pgvector)
-```
+## Try it
 
-Model IDs used by each debate role are defined once in `lib/mesh.ts`
-(`EXTRACTOR_MODEL`, `PROSECUTOR_MODEL`, `DEFENDER_MODEL`, `REFEREE_MODEL`,
-`EMBED_MODEL`) — change them there to swap models everywhere.
+Paste this to see a mixed result (true + false + needs-context):
+
+> Coffee is one of the most studied beverages in the world. Drinking coffee stunts your
+> growth and causes dehydration. Coffee was first discovered in Ethiopia. Decaffeinated
+> coffee contains absolutely no caffeine. Finland consumes more coffee per capita than
+> any other country.
+
+Or paste any article URL, upload a PDF, or drop a YouTube link.
+
+## License
+
+MIT
