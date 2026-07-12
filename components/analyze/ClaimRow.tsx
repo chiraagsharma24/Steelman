@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ChevronDown, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FactVerdictChip } from "./FactVerdictChip";
@@ -43,6 +43,7 @@ export function ClaimRow({
 }) {
   const [open, setOpen] = useState(false);
   const [debateState, setDebateState] = useState<DebateOnDemandState>({ status: "idle" });
+  const prefersReducedMotion = useReducedMotion();
 
   const isFlagged = claim.factVerdict === "MISLEADING" || claim.factVerdict === "FALSE";
   const isContested = Boolean(claim.consensus && claim.consensus.agreement !== "UNANIMOUS");
@@ -77,11 +78,19 @@ export function ClaimRow({
   }
 
   return (
-    <div
+    <motion.div
       className={cn(
         "rounded-lg border bg-card",
         isFlagged ? "border-against/35" : claim.factVerdict === "SUPPORTED" ? "border-for/25" : "border-border"
       )}
+      // A brief accent pulse as a flagged claim lands, so the "catch" reads
+      // as a catch rather than just another row appearing.
+      animate={
+        isFlagged && !prefersReducedMotion
+          ? { boxShadow: ["0 0 0 0 hsl(var(--against) / 0)", "0 0 0 3px hsl(var(--against) / 0.18)", "0 0 0 0 hsl(var(--against) / 0)"] }
+          : undefined
+      }
+      transition={isFlagged ? { duration: 1, delay: 0.4, ease: "easeOut", times: [0, 0.45, 1] } : undefined}
     >
       <button
         type="button"
@@ -163,8 +172,15 @@ export function ClaimRow({
                     {claim.grounding === "WEB" && claim.sources && claim.sources.length > 0 ? (
                       <ul className="space-y-2">
                         {claim.sources.map((s, i) => (
-                          <li
+                          <motion.li
                             key={i}
+                            initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{
+                              duration: prefersReducedMotion ? 0 : 0.25,
+                              ease: "easeOut",
+                              delay: prefersReducedMotion ? 0 : i * 0.06,
+                            }}
                             className="rounded-md border border-border/70 bg-secondary/40 p-2.5 text-sm"
                           >
                             <a
@@ -177,7 +193,7 @@ export function ClaimRow({
                               <ExternalLink className="h-3 w-3" />
                             </a>
                             {s.snippet && <p className="mt-1 text-xs text-muted-foreground">{s.snippet}</p>}
-                          </li>
+                          </motion.li>
                         ))}
                       </ul>
                     ) : claim.grounding === "WEB" ? (
@@ -238,6 +254,6 @@ export function ClaimRow({
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 }

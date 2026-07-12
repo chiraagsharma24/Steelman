@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { FactVerdictLabel } from "@/lib/analyze/schemas";
 
@@ -25,6 +25,7 @@ const LABELS: Record<FactVerdictLabel, string> = {
 };
 
 export function DistributionBar({ distribution }: { distribution: Record<FactVerdictLabel, number> }) {
+  const prefersReducedMotion = useReducedMotion();
   const present = ORDER.filter((key) => distribution[key] > 0);
 
   if (present.length === 0) {
@@ -38,9 +39,13 @@ export function DistributionBar({ distribution }: { distribution: Record<FactVer
           <motion.div
             key={key}
             className={BAR_COLOR[key]}
-            initial={{ width: 0 }}
+            initial={prefersReducedMotion ? false : { width: 0 }}
             animate={{ width: `${distribution[key]}%` }}
-            transition={{ duration: 0.7, ease: "easeOut", delay: 0.2 }}
+            transition={{
+              duration: prefersReducedMotion ? 0 : 0.8,
+              ease: "easeOut",
+              delay: prefersReducedMotion ? 0 : 0.2,
+            }}
           />
         ))}
       </div>
