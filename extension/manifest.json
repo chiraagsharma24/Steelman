@@ -5,7 +5,19 @@
   "description": "Cross-examine the page you're on: claim-by-claim credibility analysis, without leaving the tab.",
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Steelman — analyze this page"
+    "default_title": "Steelman — analyze this page",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
   },
   "permissions": ["activeTab", "scripting"],
   "host_permissions": ["https://steelman-six.vercel.app/*"]
