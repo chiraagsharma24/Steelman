@@ -312,46 +312,57 @@ export async function stepAnalysis(analysisId: string): Promise<AnalysisPollResu
     return snapshot(analysisId);
   }
 
-  // Recover any claim abandoned by a crashed/killed invocation before it
-  // could finish, so the analysis can't get stuck forever.
-  await prisma.claimAnalysis.updateMany({
-    where: {
-      analysisId,
-      status: "PROCESSING",
-      processingStartedAt: { lt: new Date(Date.now() - PROCESSING_STALE_MS) },
-    },
-    data: { status: "PENDING", processingStartedAt: null },
-  });
-
-  // Only one claim may be in flight at a time — each web search job places a
-  // real cost hold on the Mesh account, and running them concurrently stacks
-  // holds (see WEB_VERIFY_LIMIT above). If some other poll is already
-  // mid-claim, do no new work this call; just report current progress.
-  const inFlight = await prisma.claimAnalysis.findFirst({
-    where: { analysisId, status: "PROCESSING" },
-  });
-
-  if (!inFlight) {
-    const next = await prisma.claimAnalysis.findFirst({
-      where: { analysisId, status: "PENDING" },
-      orderBy: { sortIndex: "asc" },
+  try {
+    // Recover any claim abandoned by a crashed/killed invocation before it
+    // could finish, so the analysis can't get stuck forever.
+    await prisma.claimAnalysis.updateMany({
+      where: {
+        analysisId,
+        status: "PROCESSING",
+        processingStartedAt: { lt: new Date(Date.now() - PROCESSING_STALE_MS) },
+      },
+      data: { status: "PENDING", processingStartedAt: null },
     });
 
-    if (next) {
-      // Atomic compare-and-swap: guards the race between two near-simultaneous
-      // polls both finding the same PENDING row before either has claimed it.
-      const claimed = await prisma.claimAnalysis.updateMany({
-        where: { id: next.id, status: "PENDING" },
-        data: { status: "PROCESSING", processingStartedAt: new Date() },
+    // Only one claim may be in flight at a time — each web search job places a
+    // real cost hold on the Mesh account, and running them concurrently stacks
+    // holds (see WEB_VERIFY_LIMIT above). If some other poll is already
+    // mid-claim, do no new work this call; just report current progress.
+    const inFlight = await prisma.claimAnalysis.findFirst({
+      where: { analysisId, status: "PROCESSING" },
+    });
+
+    if (!inFlight) {
+      const next = await prisma.claimAnalysis.findFirst({
+        where: { analysisId, status: "PENDING" },
+        orderBy: { sortIndex: "asc" },
       });
-      if (claimed.count === 1) {
-        await processClaimRow({ ...next, status: "PROCESSING" });
+
+      if (next) {
+        // Atomic compare-and-swap: guards the race between two near-simultaneous
+        // polls both finding the same PENDING row before either has claimed it.
+        const claimed = await prisma.claimAnalysis.updateMany({
+          where: { id: next.id, status: "PENDING" },
+          data: { status: "PROCESSING", processingStartedAt: new Date() },
+        });
+        if (claimed.count === 1) {
+          await processClaimRow({ ...next, status: "PROCESSING" });
+        }
+        // count === 0 means another poll won the race — fall through and just
+        // report current progress below.
+      } else {
+        await finalizeAnalysis(analysisId);
       }
-      // count === 0 means another poll won the race — fall through and just
-      // report current progress below.
-    } else {
-      await finalizeAnalysis(analysisId);
     }
+  } catch (err) {
+    // A transient persistence hiccup here (dropped pooled connection,
+    // serverless Postgres cold-start reconnect, etc.) must not take the
+    // whole analysis down — processClaimRow already isolates a genuine
+    // per-claim failure (marks that row FAILED and returns normally), so
+    // anything reaching here is infrastructure noise around that, not a
+    // claim result. Log it and let the next poll retry this same unit of
+    // work instead of 500-ing the request.
+    console.error(`[analyze] ${analysisId}: step failed, will retry on next poll:`, err);
   }
 
   return snapshot(analysisId);

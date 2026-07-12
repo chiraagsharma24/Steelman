@@ -1,7 +1,14 @@
-import { JSDOM } from "jsdom";
-import { Readability } from "@mozilla/readability";
 import { AppError } from "@/lib/mesh";
 import type { IngestSource } from "./types";
+
+// jsdom/@mozilla/readability are imported lazily, only inside this
+// function's URL branch — never at module load. jsdom pulls in an
+// ESM-only transitive dep (@exodus/bytes via html-encoding-sniffer) that
+// crashes with ERR_REQUIRE_ESM on Vercel's serverless build. Keeping the
+// import out of the module's top level means TEXT/YOUTUBE requests (which
+// never touch this file's code) can't be taken down by it, and if the
+// import itself still fails at runtime, we degrade gracefully below
+// instead of 500ing.
 
 const MIN_LENGTH = 200;
 const FETCH_TIMEOUT_MS = 15_000;
@@ -40,8 +47,22 @@ export async function fromUrl(rawUrl: string): Promise<IngestSource> {
     );
   }
 
-  const dom = new JSDOM(html, { url: parsed.toString() });
-  const article = new Readability(dom.window.document).parse();
+  let article: { title?: string | null; textContent?: string | null } | null;
+  try {
+    const [{ JSDOM }, { Readability }] = await Promise.all([
+      import("jsdom"),
+      import("@mozilla/readability"),
+    ]);
+    const dom = new JSDOM(html, { url: parsed.toString() });
+    article = new Readability(dom.window.document).parse();
+  } catch {
+    throw new AppError(
+      "upstream_error",
+      "URL analysis is temporarily unavailable — paste the text or use a YouTube link instead.",
+      503
+    );
+  }
+
   const text = article?.textContent?.trim() ?? "";
 
   if (text.length < MIN_LENGTH) {

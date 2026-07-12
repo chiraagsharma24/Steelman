@@ -7,19 +7,36 @@ import {
   YoutubeTranscriptNotAvailableLanguageError,
   YoutubeTranscriptTooManyRequestError,
 } from "youtube-transcript-plus";
-import { JSDOM } from "jsdom";
 import { AppError } from "@/lib/mesh";
 import type { IngestSource } from "./types";
 
 const MIN_LENGTH = 20;
 
 // youtube-transcript-plus returns raw caption text with HTML entities
-// (e.g. "&#39;") undecoded. Reuse jsdom (already a dependency for URL
-// ingestion) for correct, browser-grade entity decoding rather than a
-// hand-rolled regex.
+// (e.g. "&#39;") undecoded. Decode without jsdom — jsdom pulls in an
+// ESM-only transitive dep (@exodus/bytes via html-encoding-sniffer) that
+// crashes with ERR_REQUIRE_ESM on Vercel's serverless build.
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
+  hellip: "…",
+  mdash: "—",
+  ndash: "–",
+  lsquo: "‘",
+  rsquo: "’",
+  ldquo: "“",
+  rdquo: "”",
+};
+
 function decodeHtmlEntities(text: string): string {
-  const dom = new JSDOM(`<!DOCTYPE html><body>${text}</body>`);
-  return dom.window.document.body.textContent ?? text;
+  return text
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
+    .replace(/&([a-zA-Z]+);/g, (match, name) => NAMED_ENTITIES[name] ?? match);
 }
 
 export async function fromYoutube(url: string): Promise<IngestSource> {

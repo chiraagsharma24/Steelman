@@ -25,7 +25,7 @@ const SYSTEM_PROMPT = `You are a neutral, careful fact-checker evaluating a sing
 
 ${CALIBRATION_RULES}
 
-Keep "explanation" and "correction" to 2-3 sentences each. A complete, valid JSON response matters more than an exhaustive one — do not let either field run so long that you can't close the JSON.
+Keep "explanation" and "correction" to 1-2 short sentences each — brief over thorough. A complete, valid JSON response matters far more than an exhaustive one: finish the JSON. If you're running long, cut the explanation short and close the object rather than continuing to elaborate.
 
 Respond with ONLY valid JSON, no markdown fences, no commentary:
 {"verdict": "SUPPORTED"|"MISLEADING"|"FALSE"|"UNVERIFIABLE"|"NEEDS_CONTEXT", "confidence": "HIGH"|"MEDIUM"|"LOW", "explanation": string, "correction": string|null}
@@ -47,7 +47,7 @@ async function judgeClaim(
     {
       model,
       temperature: 0,
-      max_tokens: 900,
+      max_tokens: 2000,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: buildUserPrompt(claimText, grounding) },

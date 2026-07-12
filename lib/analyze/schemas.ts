@@ -41,7 +41,11 @@ export const ClaimJudgmentSchema = z.object({
   verdict: FactVerdictLabelSchema,
   confidence: z.enum(["HIGH", "MEDIUM", "LOW"]),
   explanation: z.string().min(1),
-  correction: z.string().nullable(),
+  // Defaulted rather than strictly required: a response truncated by
+  // max_tokens mid-explanation never reaches this key at all, and a missing
+  // correction is equivalent to "none" anyway (only meaningful for
+  // MISLEADING/FALSE verdicts).
+  correction: z.string().nullable().default(null),
 });
 export type ClaimJudgment = z.infer<typeof ClaimJudgmentSchema>;
 

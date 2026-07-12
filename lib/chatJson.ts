@@ -8,15 +8,52 @@ export function stripCodeFences(raw: string): string {
   return fenced ? fenced[1].trim() : trimmed;
 }
 
+// Best-effort repair for JSON cut off mid-string/mid-object by a token
+// limit (e.g. `{"verdict":"FALSE","explanation":"While there have been`).
+// Closes the dangling string and any open braces/brackets so a response
+// that's truncated but otherwise well-formed can still parse, instead of
+// failing the whole claim over a missing trailing `"}`.
+function attemptSalvage(raw: string): unknown | null {
+  let s = stripCodeFences(raw).trim();
+  if (!s.startsWith("{") && !s.startsWith("[")) return null;
+
+  const quoteCount = (s.match(/(?<!\\)"/g) ?? []).length;
+  if (quoteCount % 2 !== 0) s += '"';
+  s = s.replace(/,\s*$/, "");
+
+  const stack: string[] = [];
+  let inString = false;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (ch === '"' && s[i - 1] !== "\\") inString = !inString;
+    if (inString) continue;
+    if (ch === "{" || ch === "[") stack.push(ch);
+    else if (ch === "}" && stack.at(-1) === "{") stack.pop();
+    else if (ch === "]" && stack.at(-1) === "[") stack.pop();
+  }
+  while (stack.length) s += stack.pop() === "{" ? "}" : "]";
+
+  try {
+    return JSON.parse(s);
+  } catch {
+    return null;
+  }
+}
+
 function parseAndValidate<T>(raw: string, schema: z.ZodType<T>): T {
   let json: unknown;
   try {
     json = JSON.parse(stripCodeFences(raw));
   } catch {
-    // Calm, human message for anything that surfaces to the UI (e.g. a
-    // failed claim's error text) — the raw parse error isn't meaningful to
-    // an end user. Full detail already sits in the caller's console logs.
-    throw new AppError("validation_error", "The model's response could not be understood.", 502);
+    const salvaged = attemptSalvage(raw);
+    if (salvaged === null) {
+      // Calm, human message for anything that surfaces to the UI (e.g. a
+      // failed claim's error text) — the raw parse error isn't meaningful to
+      // an end user. Full detail already sits in the caller's console logs.
+      throw new AppError("validation_error", "The model's response could not be understood.", 502);
+    }
+    console.warn("[chatJson] salvaged truncated JSON response");
+    json = salvaged;
   }
   const result = schema.safeParse(json);
   if (!result.success) {

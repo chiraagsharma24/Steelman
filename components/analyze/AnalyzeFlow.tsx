@@ -61,15 +61,37 @@ export function AnalyzeFlow() {
   }
 
   async function pollUntilDone(analysisId: string): Promise<AnalyzeSuccess | ApiFailure> {
+    // A single bad poll (network blip, a transient 500 from a serverless
+    // DB cold-start reconnect) must not end the whole analysis — the
+    // backend keeps the run alive and a retry a couple seconds later
+    // almost always succeeds. Only give up after several in a row.
+    const MAX_CONSECUTIVE_FAILURES = 5;
+    let consecutiveFailures = 0;
+
     for (;;) {
       if (cancelledRef.current) return { ok: false, error: { code: "cancelled", message: "Cancelled." } };
 
       await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
       if (cancelledRef.current) return { ok: false, error: { code: "cancelled", message: "Cancelled." } };
 
-      const res = await fetch(`/api/analyze/${analysisId}`);
-      const data = (await res.json()) as AnalyzePoll | ApiFailure;
-      if (!data.ok) return data;
+      let data: AnalyzePoll | ApiFailure;
+      try {
+        const res = await fetch(`/api/analyze/${analysisId}`);
+        data = (await res.json()) as AnalyzePoll | ApiFailure;
+      } catch {
+        consecutiveFailures++;
+        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+          return { ok: false, error: { code: "unknown", message: "Could not reach the server. Check your connection and try again." } };
+        }
+        continue;
+      }
+
+      if (!data.ok) {
+        consecutiveFailures++;
+        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) return data;
+        continue;
+      }
+      consecutiveFailures = 0;
 
       setProgress({ done: data.doneCount, total: data.totalClaims });
 
