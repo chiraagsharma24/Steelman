@@ -56,15 +56,20 @@ export interface StartAnalysisResult {
   checkableCount: number;
 }
 
-// Returned by GET /api/analyze/[id] on every poll. credibilityScore/
-// distribution/framingCounts are only populated once status === "DONE".
+// Returned by GET /api/analyze/[id] on every poll. Score fields are only
+// populated once status === "DONE". credibilityScore is null (with
+// insufficientEvidence true) when too few claims resolved to a real verdict
+// for a percentage score to be a fair summary — see lib/analyze/score.ts.
 export interface AnalysisPollResult {
   analysisId: string;
   status: "RUNNING" | "DONE" | "FAILED";
   title: string;
   totalClaims: number;
   doneCount: number;
-  credibilityScore?: number;
+  credibilityScore?: number | null;
+  insufficientEvidence?: boolean;
+  checkableCount?: number;
+  verifiedCount?: number;
   distribution?: Record<FactVerdictLabel, number>;
   framingCounts?: Record<string, number>;
   claims: ClaimAnalysisResult[];
@@ -76,7 +81,10 @@ export interface AnalysisPollResult {
 export interface RunAnalysisResult {
   analysisId: string;
   title: string;
-  credibilityScore: number;
+  credibilityScore: number | null;
+  insufficientEvidence: boolean;
+  checkableCount: number;
+  verifiedCount: number;
   distribution: Record<FactVerdictLabel, number>;
   framingCounts: Record<string, number>;
   claims: ClaimAnalysisResult[];
@@ -263,8 +271,9 @@ async function finalizeAnalysis(analysisId: string): Promise<void> {
   });
 
   const webGroundedCount = rows.filter((r) => r.grounding === "WEB").length;
+  const scoreLabel = score.insufficientEvidence ? "insufficient evidence" : `${score.credibilityScore}/100`;
   console.log(
-    `[analyze] ${analysisId}: done — score ${score.credibilityScore}/100, ${score.checkedCount}/${score.totalClaims} claims checked, ${webGroundedCount} web search call(s) made`
+    `[analyze] ${analysisId}: done — score ${scoreLabel} (${score.verifiedCount}/${score.checkableCount} claims verified), ${score.checkedCount}/${score.totalClaims} claims checked, ${webGroundedCount} web search call(s) made`
   );
 }
 
@@ -281,15 +290,37 @@ async function snapshot(analysisId: string): Promise<AnalysisPollResult> {
   const claims = rows.map(rowToResult);
   const doneCount = rows.filter((r) => r.status === "DONE" || r.status === "FAILED").length;
 
+  // Recomputed live from the claim rows rather than read back from the
+  // Analysis row's cached JSON columns — cheap (rows are already fetched
+  // above) and keeps insufficientEvidence/checkableCount/verifiedCount in
+  // sync without needing new persisted columns for them.
+  const score =
+    analysis.status === "DONE"
+      ? computeScore(
+          rows.map(
+            (r): ScoredClaim => ({
+              checkable: r.checkable,
+              succeeded: r.status === "DONE",
+              factVerdict: r.factVerdict ?? undefined,
+              factConfidence: r.factConfidence ?? undefined,
+              framing: (r.framingJson as unknown as string[] | null) ?? [],
+            })
+          )
+        )
+      : undefined;
+
   return {
     analysisId,
     status: analysis.status === "RUNNING" ? "RUNNING" : analysis.status === "DONE" ? "DONE" : "FAILED",
     title: analysis.title,
     totalClaims: rows.length,
     doneCount,
-    credibilityScore: analysis.credibilityScore ?? undefined,
-    distribution: (analysis.distributionJson as unknown as Record<FactVerdictLabel, number> | null) ?? undefined,
-    framingCounts: (analysis.framingCountsJson as unknown as Record<string, number> | null) ?? undefined,
+    credibilityScore: score?.credibilityScore,
+    insufficientEvidence: score?.insufficientEvidence,
+    checkableCount: score?.checkableCount,
+    verifiedCount: score?.verifiedCount,
+    distribution: score?.distribution,
+    framingCounts: score?.framingCounts,
     claims,
   };
 }

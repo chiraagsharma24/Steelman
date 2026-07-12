@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { CredibilityScore } from "./CredibilityScore";
 import { DistributionBar } from "./DistributionBar";
@@ -25,6 +25,7 @@ export function AnalysisResults({
 }) {
   const [tab, setTab] = useState<ClaimFilterTab>("all");
   const [technique, setTechnique] = useState<string | null>(null);
+  const prefersReducedMotion = useReducedMotion();
 
   const checkedClaims = result.claims.filter((c) => c.checkable && c.status === "DONE");
   const uncertainShare =
@@ -88,8 +89,16 @@ export function AnalysisResults({
         className="mb-5 rounded-xl border border-border bg-card p-5 sm:p-6"
       >
         <div className="flex flex-col gap-5 sm:flex-row sm:divide-x sm:divide-border">
-          <div className="flex shrink-0 items-center justify-center sm:pr-6">
-            <CredibilityScore score={result.credibilityScore} />
+          <div className="flex shrink-0 flex-col items-center gap-2 text-center sm:pr-6">
+            <CredibilityScore
+              score={result.credibilityScore}
+              insufficientEvidence={result.insufficientEvidence}
+            />
+            {result.insufficientEvidence && (
+              <p className="max-w-[9rem] font-serif text-sm italic text-foreground">
+                Insufficient evidence to score
+              </p>
+            )}
           </div>
 
           <div className="flex-1 sm:pl-6 sm:pr-6">
@@ -97,7 +106,17 @@ export function AnalysisResults({
               Verdict distribution
             </p>
             <DistributionBar distribution={result.distribution} />
-            {checkedClaims.length > 0 && uncertainShare >= 0.5 && (
+            <p className="mt-3 text-xs font-medium text-muted-foreground">
+              Verification coverage: {result.verifiedCount} of {result.checkableCount} claims verified
+            </p>
+            {result.insufficientEvidence && (
+              <p className="mt-1.5 text-sm italic text-muted-foreground">
+                We could verify {result.verifiedCount} of {result.checkableCount} claims against
+                evidence — too few to summarize as a single credibility percentage. That reflects
+                gaps in available evidence, not a judgment on the source itself.
+              </p>
+            )}
+            {!result.insufficientEvidence && checkedClaims.length > 0 && uncertainShare >= 0.5 && (
               <p className="mt-3 text-sm italic text-muted-foreground">
                 Much of this couldn&rsquo;t be verified against available evidence — treat it with
                 caution rather than as confirmed.
@@ -146,9 +165,13 @@ export function AnalysisResults({
           filteredClaims.map((claim, i) => (
             <motion.div
               key={claim.claimId}
-              initial={{ opacity: 0, y: 10 }}
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, ease: "easeOut", delay: Math.min(i * 0.05, 0.4) }}
+              transition={{
+                duration: prefersReducedMotion ? 0 : 0.3,
+                ease: "easeOut",
+                delay: prefersReducedMotion ? 0 : Math.min(i * 0.04, 0.5),
+              }}
             >
               <ClaimRow claim={claim} documentId={documentId} />
             </motion.div>
