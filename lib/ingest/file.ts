@@ -1,10 +1,15 @@
-import { PDFParse } from "pdf-parse";
 import { AppError } from "@/lib/mesh";
 import type { IngestSource } from "./types";
 
 const MIN_LENGTH = 20;
 
 export async function fromPdf(buffer: Buffer, filename?: string): Promise<IngestSource> {
+  // Imported lazily, not at module load — route.ts imports fromPdf
+  // unconditionally, so a top-level import here would crash every
+  // /api/ingest request (TEXT/YOUTUBE included) if pdf-parse's own import
+  // chain ever fails on Vercel, exactly like the youtube-transcript-plus
+  // issue in lib/ingest/youtube.ts. See that file for the full story.
+  const { PDFParse } = await import("pdf-parse");
   const parser = new PDFParse({ data: buffer });
   try {
     const result = await parser.getText({ pageJoiner: "" });

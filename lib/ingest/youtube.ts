@@ -1,12 +1,3 @@
-import {
-  fetchTranscript,
-  YoutubeTranscriptInvalidVideoIdError,
-  YoutubeTranscriptVideoUnavailableError,
-  YoutubeTranscriptDisabledError,
-  YoutubeTranscriptNotAvailableError,
-  YoutubeTranscriptNotAvailableLanguageError,
-  YoutubeTranscriptTooManyRequestError,
-} from "youtube-transcript-plus";
 import { AppError } from "@/lib/mesh";
 import type { IngestSource } from "./types";
 
@@ -22,7 +13,7 @@ const NAMED_ENTITIES: Record<string, string> = {
   gt: ">",
   quot: '"',
   apos: "'",
-  nbsp: " ",
+  nbsp: " ",
   hellip: "…",
   mdash: "—",
   ndash: "–",
@@ -40,6 +31,24 @@ function decodeHtmlEntities(text: string): string {
 }
 
 export async function fromYoutube(url: string): Promise<IngestSource> {
+  // Imported lazily, only inside this function — not at module load. This
+  // is the SAME package that turned out to be the real cause of every
+  // /api/ingest request 500ing on Vercel (not just YOUTUBE/URL requests):
+  // youtube-transcript-plus is ESM-only, and route.ts imports fromYoutube
+  // unconditionally, so a top-level `import` here previously crashed the
+  // whole route's module load — taking TEXT requests down with it, even
+  // though TEXT never touches this file's logic. See lib/ingest/url.ts and
+  // lib/ingest/file.ts for the same fix applied to their own ESM deps.
+  const {
+    fetchTranscript,
+    YoutubeTranscriptInvalidVideoIdError,
+    YoutubeTranscriptVideoUnavailableError,
+    YoutubeTranscriptDisabledError,
+    YoutubeTranscriptNotAvailableError,
+    YoutubeTranscriptNotAvailableLanguageError,
+    YoutubeTranscriptTooManyRequestError,
+  } = await import("youtube-transcript-plus");
+
   try {
     // Explicit lang: "en" is required — without it the library picked an
     // arbitrary caption track (Albanian, Arabic) instead of English for two

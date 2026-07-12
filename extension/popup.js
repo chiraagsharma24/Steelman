@@ -56,11 +56,31 @@ async function apiFetch(path, options) {
     ...options,
     headers: { "content-type": "application/json", ...(options && options.headers) },
   });
+
+  // Check status BEFORE parsing — a server crash (Vercel's platform error
+  // page, a proxy timeout page, etc.) comes back as HTML with a non-2xx
+  // status, and res.json() throwing on that would surface as a confusing
+  // "unexpected response" with no indication anything was actually wrong
+  // server-side. Read it as text first so a real error is at least visible.
+  if (!res.ok) {
+    const bodyText = await res.text().catch(() => "");
+    let message = `The Steelman API returned an error (HTTP ${res.status}).`;
+    try {
+      const parsed = JSON.parse(bodyText);
+      if (parsed && parsed.error && parsed.error.message) message = parsed.error.message;
+    } catch {
+      // Non-JSON error body (e.g. an HTML error page) — keep the status-based message,
+      // but log the raw body so it's visible in the extension's console for debugging.
+      console.error(`[steelman] ${path} -> HTTP ${res.status}, non-JSON body:`, bodyText.slice(0, 500));
+    }
+    throw new Error(message);
+  }
+
   let data;
   try {
     data = await res.json();
   } catch {
-    throw new Error("The Steelman API returned an unexpected response.");
+    throw new Error("The Steelman API returned a response that wasn't valid JSON.");
   }
   if (!data.ok) {
     throw new Error((data.error && data.error.message) || "The Steelman API returned an error.");
