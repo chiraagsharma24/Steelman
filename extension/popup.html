@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Steelman</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="header">
+      <span class="wordmark">Steelman</span>
+      <span class="subtitle">Credibility analysis</span>
+    </header>
+
+    <main id="app">
+      <section id="state-loading" class="state">
+        <div class="spinner" aria-hidden="true"></div>
+        <p id="loading-text" class="loading-text">Reading this page&hellip;</p>
+        <p id="loading-progress" class="loading-progress"></p>
+      </section>
+
+      <section id="state-error" class="state hidden">
+        <p class="error-text" id="error-text">Something went wrong.</p>
+        <button id="retry-button" class="button">Try again</button>
+      </section>
+
+      <section id="state-result" class="state hidden">
+        <div class="result-top">
+          <div id="score-badge" class="score-badge">
+            <span id="score-number" class="score-number">–</span>
+            <span class="score-label">Credibility</span>
+          </div>
+          <div class="result-top-text">
+            <p id="headline" class="headline">&nbsp;</p>
+            <p id="coverage" class="coverage"></p>
+          </div>
+        </div>
+
+        <div id="distribution-bar" class="distribution-bar"></div>
+        <div id="distribution-legend" class="distribution-legend"></div>
+
+        <div id="claims-list" class="claims-list"></div>
+      </section>
+    </main>
+
+    <script src="config.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

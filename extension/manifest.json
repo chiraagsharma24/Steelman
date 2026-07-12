@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Steelman",
+  "version": "0.1.0",
+  "description": "Cross-examine the page you're on: claim-by-claim credibility analysis, without leaving the tab.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Steelman — analyze this page"
+  },
+  "permissions": ["activeTab", "scripting"],
+  "host_permissions": ["https://steelman-six.vercel.app/*"]
+}

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { SourceType } from "@prisma/client";
 import { AppError } from "@/lib/mesh";
-import { handleApiError } from "@/lib/api";
+import { handleApiError, withCors } from "@/lib/api";
 import { fromText } from "@/lib/ingest/text";
 import { fromUrl } from "@/lib/ingest/url";
 import { fromPdf } from "@/lib/ingest/file";
@@ -64,8 +64,12 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await ingestAndStore(source, sourceType);
-    return NextResponse.json({ ok: true, ...result });
+    return withCors(NextResponse.json({ ok: true, ...result }));
   } catch (err) {
-    return handleApiError(err);
+    return withCors(handleApiError(err));
   }
+}
+
+export async function OPTIONS() {
+  return withCors(new NextResponse(null, { status: 204 }));
 }
